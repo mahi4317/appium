@@ -1,6 +1,9 @@
 # Appium Java Android Test Framework
 
-A minimal, ready-to-run Appium + TestNG framework for Android testing.
+![Android Tests](https://github.com/mahi4317/appium/actions/workflows/android-tests.yml/badge.svg)
+![BrowserStack Tests](https://github.com/mahi4317/appium/actions/workflows/browserstack-tests.yml/badge.svg)
+
+A minimal, ready-to-run Appium + TestNG framework for Android testing with full CI/CD automation.
 
 ## Prerequisites
 - Java 17 (or compatible JDK)
@@ -199,3 +202,17 @@ mvn test -Denv=remote
   adb install <path-to-calculator.apk>
   ```
 - `adb` or `appium` not recognized: Make sure they are installed and added to PATH. Open a NEW PowerShell after updating PATH.
+
+## CI/CD
+
+This project includes GitHub Actions workflows for automated testing:
+
+- **Android Tests** - Runs on macOS with Android emulator (daily + on push/PR)
+- **BrowserStack Tests** - Runs on real devices via BrowserStack cloud
+
+See [CI/CD Documentation](.github/CICD.md) for setup instructions.
+
+**Add BrowserStack credentials:**
+Go to Settings → Secrets → Actions and add:
+- `BROWSERSTACK_USER`
+- `BROWSERSTACK_KEY`
