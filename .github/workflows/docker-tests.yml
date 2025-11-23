@@ -1,0 +1,76 @@
+name: Docker Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  docker-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build test image
+      run: docker build -t appium-tests:latest .
+
+    - name: Start services
+      run: docker-compose up -d android-emulator appium-server
+
+    - name: Wait for emulator to boot
+      run: |
+        timeout=300
+        elapsed=0
+        echo "Waiting for Android emulator to boot..."
+        while [ $elapsed -lt $timeout ]; do
+          if docker-compose exec -T android-emulator adb shell getprop sys.boot_completed 2>/dev/null | grep -q "1"; then
+            echo "✅ Emulator is ready!"
+            break
+          fi
+          sleep 5
+          elapsed=$((elapsed + 5))
+          echo "Still waiting... ($elapsed seconds)"
+        done
+        
+        if [ $elapsed -ge $timeout ]; then
+          echo "❌ Emulator failed to start"
+          docker-compose logs android-emulator
+          exit 1
+        fi
+
+    - name: Install calculator app
+      run: |
+        docker-compose exec -T android-emulator wget -O /tmp/calculator.apk \
+          "https://f-droid.org/repo/com.simplemobiletools.calculator_38.apk" || true
+        docker-compose exec -T android-emulator adb install -r /tmp/calculator.apk || \
+          echo "Calculator app installation skipped"
+      continue-on-error: true
+
+    - name: Run tests
+      run: docker-compose run --rm -e ENV=docker appium-tests
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-test-results
+        path: target/surefire-reports/
+
+    - name: Stop services
+      if: always()
+      run: docker-compose down
+
+    - name: Show logs on failure
+      if: failure()
+      run: |
+        echo "=== Emulator Logs ==="
+        docker-compose logs android-emulator
+        echo "=== Appium Logs ==="
+        docker-compose logs appium-server

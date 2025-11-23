@@ -1,6 +1,7 @@
 # Appium Java Android Test Framework
 
 ![Android Tests](https://github.com/mahi4317/appium/actions/workflows/android-tests.yml/badge.svg)
+![Docker Tests](https://github.com/mahi4317/appium/actions/workflows/docker-tests.yml/badge.svg)
 ![BrowserStack Tests](https://github.com/mahi4317/appium/actions/workflows/browserstack-tests.yml/badge.svg)
 
 A minimal, ready-to-run Appium + TestNG framework for Android testing with full CI/CD automation.
@@ -203,11 +204,72 @@ mvn test -Denv=remote
   ```
 - `adb` or `appium` not recognized: Make sure they are installed and added to PATH. Open a NEW PowerShell after updating PATH.
 
+## Docker Execution
+
+Run tests in isolated Docker containers with managed emulator:
+
+### Prerequisites
+- Docker Desktop installed and running
+
+### Quick Start
+```bash
+# Run tests with one command
+./run-docker-tests.sh
+```
+
+This will:
+1. Build the test container
+2. Start Android emulator in Docker
+3. Start Appium server
+4. Run all tests
+5. Cleanup containers
+
+### Manual Docker Commands
+
+**Build test image:**
+```bash
+docker build -t appium-tests:latest .
+```
+
+**Start all services:**
+```bash
+docker-compose up -d
+```
+
+**Run tests:**
+```bash
+docker-compose run --rm appium-tests
+```
+
+**View emulator via web browser:**
+```
+http://localhost:6080
+```
+
+**Stop all services:**
+```bash
+docker-compose down
+```
+
+### Docker Configuration
+
+Use `docker.properties` for Docker-specific settings:
+```bash
+mvn test -Denv=docker
+```
+
+### Benefits of Docker Execution
+- ✅ Consistent environment across all machines
+- ✅ No local Android SDK installation needed
+- ✅ Isolated test runs
+- ✅ Easy CI/CD integration
+- ✅ Visual debugging via noVNC web interface
+
 ## CI/CD
 
 This project includes GitHub Actions workflows for automated testing:
 
-- **Android Tests** - Runs on macOS with Android emulator (daily + on push/PR)
+- **Android Tests** - Runs on Ubuntu with Android emulator (on push/PR)
 - **BrowserStack Tests** - Runs on real devices via BrowserStack cloud
 
 See [CI/CD Documentation](.github/CICD.md) for setup instructions.

@@ -1,0 +1,12 @@
+# Docker Test Execution
+
+target/
+test-results/
+*.log
+
+# Docker volumes
+.docker/
+
+# Test reports
+allure-results/
+allure-report/

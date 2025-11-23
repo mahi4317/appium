@@ -1,0 +1,37 @@
+services:
+  # Android Emulator Service
+  android-emulator:
+    image: budtmo/docker-android:emulator_11.0
+    privileged: true
+    environment:
+      - EMULATOR_DEVICE=Samsung Galaxy S10
+      - WEB_VNC=true
+    ports:
+      - "6080:6080"  # noVNC web interface
+      - "5555:5555"  # ADB connection
+    healthcheck:
+      test: ["CMD-SHELL", "adb shell getprop sys.boot_completed 2>/dev/null | grep -q 1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 60
+      start_period: 180s
+    networks:
+      - appium-network
+
+  # Appium Test Service  
+  appium-tests:
+    build: .
+    depends_on:
+      android-emulator:
+        condition: service_healthy
+    environment:
+      - ENV=docker
+    volumes:
+      - ./src:/app/src
+      - ./target:/app/target
+    networks:
+      - appium-network
+
+networks:
+  appium-network:
+    driver: bridge
