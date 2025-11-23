@@ -5,17 +5,21 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
-  schedule:
-    - cron: '0 9 * * *'  # Daily at 9 AM UTC
   workflow_dispatch:  # Manual trigger
 
 jobs:
   test:
-    runs-on: macos-latest  # macOS has built-in Android emulator support
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+    
+    - name: Enable KVM group perms
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
     
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -28,42 +32,30 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'
     
     - name: Install Appium
       run: |
         npm install -g appium@3.1.1
         appium driver install uiautomator2
     
-    - name: Set up Android SDK
-      uses: android-actions/setup-android@v3
-    
-    - name: Accept Android licenses
-      run: yes | sdkmanager --licenses || true
-    
-    - name: Install Android components
-      run: |
-        sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "emulator" "system-images;android-34;google_apis;arm64-v8a"
-    
     - name: Download Calculator app
       run: |
-        echo "Downloading Calculator app..."
         curl -L -o calculator.apk "https://f-droid.org/repo/com.simplemobiletools.calculator_38.apk"
     
     - name: Run tests with Android Emulator
       uses: reactivecircus/android-emulator-runner@v2
       with:
-        api-level: 34
-        target: google_apis
-        arch: arm64-v8a
-        profile: pixel_6
+        api-level: 29
+        target: default
+        arch: x86_64
+        profile: Nexus 6
         disable-animations: true
-        emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim
+        emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
         script: |
           echo "Installing Calculator app..."
           adb install calculator.apk
           adb shell pm list packages | grep calculator
-          echo "Configuring for CI..."
+          echo "Disabling auto-start..."
           sed -i 's/emulator.auto.start=true/emulator.auto.start=false/' src/test/resources/config/android.properties
           echo "Running tests..."
           mvn clean test
