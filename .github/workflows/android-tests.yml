@@ -45,37 +45,28 @@ jobs:
       run: |
         sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "emulator" "system-images;android-34;google_apis;arm64-v8a"
     
-    - name: Create AVD
-      run: |
-        echo "Creating Android Virtual Device..."
-        avdmanager create avd -n test_emulator -k "system-images;android-34;google_apis;arm64-v8a" -d pixel_6 --force
-    
-    - name: Start emulator in background
-      run: |
-        echo "Starting emulator..."
-        emulator -avd test_emulator -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
-        echo "Waiting for emulator to boot..."
-        adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done; input keyevent 82'
-        adb devices
-        echo "Emulator ready!"
-    
-    - name: Download and install Calculator app
+    - name: Download Calculator app
       run: |
         echo "Downloading Calculator app..."
-        curl -L -o /tmp/calculator.apk "https://f-droid.org/repo/com.simplemobiletools.calculator_38.apk"
-        echo "Installing Calculator app..."
-        adb install /tmp/calculator.apk
-        adb shell pm list packages | grep calculator
+        curl -L -o calculator.apk "https://f-droid.org/repo/com.simplemobiletools.calculator_38.apk"
     
-    - name: Disable emulator auto-start for CI
-      run: |
-        echo "Configuring for CI environment..."
-        sed -i '' 's/emulator.auto.start=true/emulator.auto.start=false/' src/test/resources/config/android.properties
-    
-    - name: Run tests
-      run: |
-        echo "Running Appium tests..."
-        mvn clean test
+    - name: Run tests with Android Emulator
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 34
+        target: google_apis
+        arch: arm64-v8a
+        profile: pixel_6
+        disable-animations: true
+        emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim
+        script: |
+          echo "Installing Calculator app..."
+          adb install calculator.apk
+          adb shell pm list packages | grep calculator
+          echo "Configuring for CI..."
+          sed -i 's/emulator.auto.start=true/emulator.auto.start=false/' src/test/resources/config/android.properties
+          echo "Running tests..."
+          mvn clean test
     
     - name: Upload test results
       if: always()
