@@ -72,22 +72,51 @@ appium-java/
 ```
 
 ## Configure
+
+### Local Execution (Default)
 Edit `src/test/resources/config/android.properties`:
 ```properties
+appium.server.local=true
 appium.server.url=http://127.0.0.1:4723/
 deviceName=Android Emulator
 platformVersion=
 udid=
 noReset=true
-appPackage=
-appActivity=
 ```
-Optionally pass `-Denv=android` to switch environments.
+
+### Remote Execution (Cloud or Remote Server)
+The framework supports multiple remote execution options:
+
+**BrowserStack** (`src/test/resources/config/browserstack.properties`):
+```properties
+appium.server.local=false
+appium.server.url=https://hub-cloud.browserstack.com/wd/hub
+deviceName=Samsung Galaxy S23
+platformVersion=13.0
+```
+
+**Sauce Labs** (`src/test/resources/config/saucelabs.properties`):
+```properties
+appium.server.local=false
+appium.server.url=https://ondemand.us-west-1.saucelabs.com/wd/hub
+deviceName=Google Pixel 6 GoogleAPI Emulator
+platformVersion=12.0
+```
+
+**Custom Remote Server** (`src/test/resources/config/remote.properties`):
+```properties
+appium.server.local=false
+appium.server.url=http://192.168.1.100:4723/
+deviceName=Remote Android Device
+```
+
+Switch environments using `-Denv=<config_name>`
 
 ## Run
 
-**Note:** The framework automatically starts and stops the Appium server using `AppiumServiceBuilder`. No manual server startup is required.
+**Note:** The framework automatically starts and stops the Appium server for local execution. For remote execution, it connects to the configured remote URL.
 
+### Local Execution (Default)
 1. Ensure the emulator is running:
    ```bash
    adb devices
@@ -100,9 +129,29 @@ Optionally pass `-Denv=android` to switch environments.
 
 3. Run a specific test:
    ```bash
-   mvn test -Dtest=LaunchSessionTest
    mvn test -Dtest=CalculatorTest
    ```
+
+### Remote Execution
+
+**BrowserStack:**
+```bash
+mvn test -Denv=browserstack \
+  -Dbrowserstack.user=YOUR_USERNAME \
+  -Dbrowserstack.key=YOUR_ACCESS_KEY
+```
+
+**Sauce Labs:**
+```bash
+mvn test -Denv=saucelabs \
+  -Dsauce.username=YOUR_USERNAME \
+  -Dsauce.accessKey=YOUR_ACCESS_KEY
+```
+
+**Custom Remote Server:**
+```bash
+mvn test -Denv=remote
+```
 
 ## What the sample test does
 `LaunchSessionTest` starts an Android session and asserts a non-null session id. You can expand from here by adding page objects and flows.

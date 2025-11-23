@@ -23,18 +23,24 @@ public class BaseTest {
         // Load config
         ConfigManager.load();
         
-        // Start Appium server automatically
-        logger.info("Starting Appium server...");
-        AppiumServiceBuilder builder = new AppiumServiceBuilder()
-                .withIPAddress("127.0.0.1")
-                .usingPort(4723)
-                .withTimeout(Duration.ofSeconds(30));
+        String serverUrl = ConfigManager.get("appium.server.url", "http://127.0.0.1:4723/");
+        boolean isLocal = Boolean.parseBoolean(ConfigManager.get("appium.server.local", "true"));
         
-        service = AppiumDriverLocalService.buildService(builder);
-        service.start();
-        logger.info("Appium server started at: " + service.getUrl());
-        
-        String serverUrl = service.getUrl().toString();
+        // Start Appium server automatically only if running locally
+        if (isLocal) {
+            logger.info("Starting local Appium server...");
+            AppiumServiceBuilder builder = new AppiumServiceBuilder()
+                    .withIPAddress("127.0.0.1")
+                    .usingPort(4723)
+                    .withTimeout(Duration.ofSeconds(30));
+            
+            service = AppiumDriverLocalService.buildService(builder);
+            service.start();
+            serverUrl = service.getUrl().toString();
+            logger.info("Appium server started at: " + serverUrl);
+        } else {
+            logger.info("Using remote Appium server at: " + serverUrl);
+        }
         String deviceName = ConfigManager.get("deviceName", "Android Emulator");
         String platformVersion = ConfigManager.get("platformVersion", "");
         String udid = ConfigManager.get("udid", "");
@@ -53,6 +59,25 @@ public class BaseTest {
         if (!udid.isEmpty()) options.setUdid(udid);
         if (!appPackage.isEmpty()) options.setAppPackage(appPackage);
         if (!appActivity.isEmpty()) options.setAppActivity(appActivity);
+        
+        // Add cloud provider credentials if available
+        String bsUser = System.getProperty("browserstack.user");
+        String bsKey = System.getProperty("browserstack.key");
+        if (bsUser != null && bsKey != null) {
+            options.setCapability("browserstack.user", bsUser);
+            options.setCapability("browserstack.key", bsKey);
+            logger.info("BrowserStack credentials configured");
+        }
+        
+        String sauceUser = System.getProperty("sauce.username");
+        String sauceKey = System.getProperty("sauce.accessKey");
+        if (sauceUser != null && sauceKey != null) {
+            options.setCapability("sauce:options", new java.util.HashMap<String, Object>() {{
+                put("username", sauceUser);
+                put("accessKey", sauceKey);
+            }});
+            logger.info("Sauce Labs credentials configured");
+        }
 
         logger.info("Starting AndroidDriver session at: " + serverUrl);
         driver = new AndroidDriver(new URL(serverUrl), options);
@@ -67,9 +92,9 @@ public class BaseTest {
             driver.quit();
         }
         
-        // Stop Appium server
+        // Stop Appium server (only if running locally)
         if (service != null && service.isRunning()) {
-            logger.info("Stopping Appium server");
+            logger.info("Stopping local Appium server");
             service.stop();
         }
     }
