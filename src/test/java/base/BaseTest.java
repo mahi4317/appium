@@ -3,6 +3,8 @@ package base;
 import com.appium.config.ConfigManager;
 import io.appium.java_client.android.AndroidDriver;
 import io.appium.java_client.android.options.UiAutomator2Options;
+import io.appium.java_client.service.local.AppiumDriverLocalService;
+import io.appium.java_client.service.local.AppiumServiceBuilder;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 
@@ -14,12 +16,25 @@ import java.util.logging.Logger;
 public class BaseTest {
     protected static final Logger logger = Logger.getLogger(BaseTest.class.getName());
     protected static AndroidDriver driver;
+    protected static AppiumDriverLocalService service;
 
     @BeforeSuite(alwaysRun = true)
     public void globalSetup() throws MalformedURLException {
         // Load config
         ConfigManager.load();
-        String serverUrl = ConfigManager.get("appium.server.url", "http://127.0.0.1:4723/");
+        
+        // Start Appium server automatically
+        logger.info("Starting Appium server...");
+        AppiumServiceBuilder builder = new AppiumServiceBuilder()
+                .withIPAddress("127.0.0.1")
+                .usingPort(4723)
+                .withTimeout(Duration.ofSeconds(30));
+        
+        service = AppiumDriverLocalService.buildService(builder);
+        service.start();
+        logger.info("Appium server started at: " + service.getUrl());
+        
+        String serverUrl = service.getUrl().toString();
         String deviceName = ConfigManager.get("deviceName", "Android Emulator");
         String platformVersion = ConfigManager.get("platformVersion", "");
         String udid = ConfigManager.get("udid", "");
@@ -50,6 +65,12 @@ public class BaseTest {
         if (driver != null) {
             logger.info("Quitting AndroidDriver session");
             driver.quit();
+        }
+        
+        // Stop Appium server
+        if (service != null && service.isRunning()) {
+            logger.info("Stopping Appium server");
+            service.stop();
         }
     }
 }
