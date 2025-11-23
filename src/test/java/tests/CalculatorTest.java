@@ -14,7 +14,8 @@ public class CalculatorTest extends BaseTest {
         // Try common calculator packages
         String[] pkgs = new String[]{
                 "com.google.android.calculator",
-                "com.android.calculator2"
+                "com.android.calculator2",
+                "com.simplemobiletools.calculator"
         };
         for (String pkg : pkgs) {
             try {
@@ -41,26 +42,35 @@ public class CalculatorTest extends BaseTest {
             throw new SkipException("No Calculator app found (tried Google and AOSP). Install one to run this test.");
         }
 
-    // Build candidate locators using both package names
+    // Build candidate locators using all calculator package names
         By twoGoogle = AppiumBy.id("com.google.android.calculator:id/digit_2");
         By twoAosp = AppiumBy.id("com.android.calculator2:id/digit_2");
+        By twoSimple = AppiumBy.id("com.simplemobiletools.calculator:id/btn_2");
+        
         By threeGoogle = AppiumBy.id("com.google.android.calculator:id/digit_3");
         By threeAosp = AppiumBy.id("com.android.calculator2:id/digit_3");
+        By threeSimple = AppiumBy.id("com.simplemobiletools.calculator:id/btn_3");
+        
         By plusGoogle = AppiumBy.id("com.google.android.calculator:id/op_add");
         By plusAosp = AppiumBy.id("com.android.calculator2:id/op_add");
+        By plusSimple = AppiumBy.id("com.simplemobiletools.calculator:id/btn_plus");
+        
         By equalsGoogle = AppiumBy.id("com.google.android.calculator:id/eq");
         By equalsAosp = AppiumBy.id("com.android.calculator2:id/eq");
+        By equalsSimple = AppiumBy.id("com.simplemobiletools.calculator:id/btn_equals");
+        
         By resultGoogle = AppiumBy.id("com.google.android.calculator:id/result_final");
         By resultGoogleAlt = AppiumBy.id("com.google.android.calculator:id/result");
         By resultAosp = AppiumBy.id("com.android.calculator2:id/result");
+        By resultSimple = AppiumBy.id("com.simplemobiletools.calculator:id/result");
 
         // 2 + 3 =
-        findAny(twoGoogle, twoAosp).click();
-        findAny(plusGoogle, plusAosp).click();
-        findAny(threeGoogle, threeAosp).click();
-        findAny(equalsGoogle, equalsAosp).click();
+        findAny(twoGoogle, twoAosp, twoSimple).click();
+        findAny(plusGoogle, plusAosp, plusSimple).click();
+        findAny(threeGoogle, threeAosp, threeSimple).click();
+        findAny(equalsGoogle, equalsAosp, equalsSimple).click();
 
-        String resultText = findAny(resultGoogle, resultGoogleAlt, resultAosp).getText();
+        String resultText = findAny(resultGoogle, resultGoogleAlt, resultAosp, resultSimple).getText();
         // Extract digits only
         String digits = resultText.replaceAll("[^0-9]", "");
         Assert.assertEquals(digits, "5", "Expected result of 2+3 to be 5 but was: " + resultText);
