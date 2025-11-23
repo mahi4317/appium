@@ -8,6 +8,8 @@ import io.appium.java_client.service.local.AppiumServiceBuilder;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Duration;
@@ -25,6 +27,16 @@ public class BaseTest {
         
         String serverUrl = ConfigManager.get("appium.server.url", "http://127.0.0.1:4723/");
         boolean isLocal = Boolean.parseBoolean(ConfigManager.get("appium.server.local", "true"));
+        
+        // Start emulator automatically if configured and running locally
+        if (isLocal) {
+            String autoStartEmulator = ConfigManager.get("emulator.auto.start", "false");
+            String avdName = ConfigManager.get("emulator.avd.name", "");
+            
+            if (Boolean.parseBoolean(autoStartEmulator) && !avdName.isEmpty()) {
+                startEmulator(avdName);
+            }
+        }
         
         // Start Appium server automatically only if running locally
         if (isLocal) {
@@ -96,6 +108,73 @@ public class BaseTest {
         if (service != null && service.isRunning()) {
             logger.info("Stopping local Appium server");
             service.stop();
+        }
+    }
+    
+    private void startEmulator(String avdName) {
+        try {
+            // Check if emulator is already running
+            Process checkProcess = Runtime.getRuntime().exec("adb devices");
+            BufferedReader reader = new BufferedReader(new InputStreamReader(checkProcess.getInputStream()));
+            String line;
+            boolean emulatorRunning = false;
+            
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("emulator") && line.contains("device")) {
+                    emulatorRunning = true;
+                    break;
+                }
+            }
+            reader.close();
+            checkProcess.waitFor();
+            
+            if (emulatorRunning) {
+                logger.info("Emulator is already running");
+                return;
+            }
+            
+            // Start emulator in background
+            logger.info("Starting emulator: " + avdName);
+            String emulatorPath = System.getenv("ANDROID_HOME") != null 
+                ? System.getenv("ANDROID_HOME") + "/emulator/emulator"
+                : "/opt/homebrew/share/android-commandlinetools/emulator/emulator";
+            
+            ProcessBuilder pb = new ProcessBuilder(emulatorPath, "-avd", avdName, "-no-snapshot-load");
+            pb.redirectErrorStream(true);
+            pb.start(); // Start and let it run in background
+            
+            // Wait for emulator to boot (check adb devices)
+            logger.info("Waiting for emulator to boot...");
+            int maxWaitTime = 120; // 2 minutes
+            int waitedTime = 0;
+            
+            while (waitedTime < maxWaitTime) {
+                Thread.sleep(2000);
+                waitedTime += 2;
+                
+                Process adbProcess = Runtime.getRuntime().exec("adb devices");
+                BufferedReader adbReader = new BufferedReader(new InputStreamReader(adbProcess.getInputStream()));
+                String adbLine;
+                
+                while ((adbLine = adbReader.readLine()) != null) {
+                    if (adbLine.contains("emulator") && adbLine.contains("device")) {
+                        adbReader.close();
+                        adbProcess.waitFor();
+                        logger.info("Emulator booted successfully in " + waitedTime + " seconds");
+                        
+                        // Additional wait for emulator to be fully ready
+                        Thread.sleep(5000);
+                        return;
+                    }
+                }
+                adbReader.close();
+                adbProcess.waitFor();
+            }
+            
+            logger.warning("Emulator did not boot within " + maxWaitTime + " seconds");
+            
+        } catch (Exception e) {
+            logger.warning("Failed to start emulator: " + e.getMessage());
         }
     }
 }

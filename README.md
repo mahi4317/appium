@@ -28,14 +28,17 @@ sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "emulato
 ```
 
 ## Create and Start Android Emulator
+
+**Note:** The framework can automatically start the emulator (enabled by default). Manual setup is only needed once.
+
 ```bash
-# Create AVD (Android Virtual Device)
+# Create AVD (Android Virtual Device) - one time setup
 avdmanager create avd -n Pixel_6_API_34 -k "system-images;android-34;google_apis;arm64-v8a" -d pixel_6
 
 # List available AVDs
 emulator -list-avds
 
-# Start emulator
+# Manual start (optional - framework auto-starts by default)
 emulator -avd Pixel_6_API_34 &
 
 # Verify device is connected
@@ -78,6 +81,11 @@ Edit `src/test/resources/config/android.properties`:
 ```properties
 appium.server.local=true
 appium.server.url=http://127.0.0.1:4723/
+
+# Emulator auto-start (enabled by default)
+emulator.auto.start=true
+emulator.avd.name=Pixel_6_API_34
+
 deviceName=Android Emulator
 platformVersion=
 udid=
@@ -114,23 +122,32 @@ Switch environments using `-Denv=<config_name>`
 
 ## Run
 
-**Note:** The framework automatically starts and stops the Appium server for local execution. For remote execution, it connects to the configured remote URL.
+**Note:** The framework includes full automation for local execution:
+- ✅ **Automatic emulator startup** - Starts emulator if not running (configurable)
+- ✅ **Automatic Appium server management** - Starts and stops server automatically
+- ✅ **Remote execution support** - Works with BrowserStack, Sauce Labs, and custom servers
 
 ### Local Execution (Default)
-1. Ensure the emulator is running:
-   ```bash
-   adb devices
-   ```
 
-2. Run all tests:
-   ```bash
-   mvn clean test
-   ```
+**Fully automated** - Just run the tests:
+```bash
+mvn clean test
+```
 
-3. Run a specific test:
-   ```bash
-   mvn test -Dtest=CalculatorTest
-   ```
+The framework will automatically:
+1. Check if emulator is running, start it if needed
+2. Wait for emulator to boot completely
+3. Start Appium server
+4. Run your tests
+5. Stop Appium server after tests complete
+
+**Run a specific test:**
+```bash
+mvn test -Dtest=CalculatorTest
+```
+
+**Disable emulator auto-start** (if you prefer manual control):
+Set `emulator.auto.start=false` in `android.properties`
 
 ### Remote Execution
 
