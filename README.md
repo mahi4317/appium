@@ -267,14 +267,34 @@ mvn test -Denv=docker
 
 ## CI/CD
 
-This project includes GitHub Actions workflows for automated testing:
+This project supports multiple CI/CD platforms:
+
+### GitHub Actions (Included)
 
 - **Android Tests** - Runs on Ubuntu with Android emulator (on push/PR)
+- **Docker Tests** - Runs tests in isolated containers
 - **BrowserStack Tests** - Runs on real devices via BrowserStack cloud
 
-See [CI/CD Documentation](.github/CICD.md) for setup instructions.
+See [GitHub Actions Documentation](.github/CICD.md) for setup instructions.
 
 **Add BrowserStack credentials:**
 Go to Settings → Secrets → Actions and add:
 - `BROWSERSTACK_USER`
 - `BROWSERSTACK_KEY`
+
+### Jenkins (Included)
+
+We provide two Jenkinsfile options:
+
+1. **`Jenkinsfile`** - Full pipeline with local, Docker, BrowserStack, and Sauce Labs support
+2. **`Jenkinsfile.docker`** - Simplified Docker-only pipeline
+
+**Features:**
+- ✅ Parameterized builds (choose execution mode)
+- ✅ Automated emulator setup
+- ✅ Docker containerized execution
+- ✅ Cloud testing (BrowserStack, Sauce Labs)
+- ✅ Test report publishing
+- ✅ Automatic cleanup
+
+See [Jenkins Setup Guide](.jenkins/README.md) for detailed configuration.

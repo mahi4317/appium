@@ -1,0 +1,74 @@
+pipeline {
+    agent {
+        docker {
+            image 'maven:3.9.5-eclipse-temurin-17'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.m2:/root/.m2'
+        }
+    }
+    
+    parameters {
+        choice(name: 'EXECUTION_MODE', choices: ['docker', 'browserstack'], description: 'Select execution mode')
+    }
+    
+    environment {
+        BROWSERSTACK_USER = credentials('browserstack-user')
+        BROWSERSTACK_KEY = credentials('browserstack-key')
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Install Docker Compose') {
+            when {
+                expression { params.EXECUTION_MODE == 'docker' }
+            }
+            steps {
+                sh '''
+                    apt-get update && apt-get install -y docker-compose
+                '''
+            }
+        }
+        
+        stage('Run Tests - Docker') {
+            when {
+                expression { params.EXECUTION_MODE == 'docker' }
+            }
+            steps {
+                sh '''
+                    chmod +x run-docker-tests.sh
+                    ./run-docker-tests.sh
+                '''
+            }
+        }
+        
+        stage('Run Tests - BrowserStack') {
+            when {
+                expression { params.EXECUTION_MODE == 'browserstack' }
+            }
+            steps {
+                sh """
+                    mvn clean test -Denv=browserstack \
+                        -Dbrowserstack.user=${BROWSERSTACK_USER} \
+                        -Dbrowserstack.key=${BROWSERSTACK_KEY}
+                """
+            }
+        }
+    }
+    
+    post {
+        always {
+            junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
+            archiveArtifacts artifacts: '**/target/surefire-reports/**/*', allowEmptyArchive: true
+            
+            script {
+                if (params.EXECUTION_MODE == 'docker') {
+                    sh 'docker-compose down || true'
+                }
+            }
+        }
+    }
+}
