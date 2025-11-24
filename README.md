@@ -267,34 +267,263 @@ mvn test -Denv=docker
 
 ## CI/CD
 
-This project supports multiple CI/CD platforms:
+This project supports multiple CI/CD platforms with comprehensive automation:
 
-### GitHub Actions (Included)
+---
 
-- **Android Tests** - Runs on Ubuntu with Android emulator (on push/PR)
-- **Docker Tests** - Runs tests in isolated containers
-- **BrowserStack Tests** - Runs on real devices via BrowserStack cloud
+### 🚀 GitHub Actions (Cloud-Based CI/CD)
 
-See [GitHub Actions Documentation](.github/CICD.md) for setup instructions.
+**What is GitHub Actions?**  
+Automated CI/CD pipelines that run on GitHub's servers when you push code. No setup required - just push and tests run automatically!
 
-**Add BrowserStack credentials:**
-Go to Settings → Secrets → Actions and add:
-- `BROWSERSTACK_USER`
-- `BROWSERSTACK_KEY`
+**Three Workflow Files:**
 
-### Jenkins (Included)
+#### 1. **`android-tests.yml`** - Native Android Emulator Testing
+**Location:** `.github/workflows/android-tests.yml`
 
-We provide two Jenkinsfile options:
+**What it does:**
+- Runs tests on GitHub-hosted Ubuntu runner
+- Uses real Android emulator (API 29, x86_64, Nexus 6)
+- Hardware acceleration (KVM) for faster execution
+- Automatic on every push/PR to main/develop
 
-1. **`Jenkinsfile`** - Full pipeline with local, Docker, BrowserStack, and Sauce Labs support
-2. **`Jenkinsfile.docker`** - Simplified Docker-only pipeline
+**Key Features:**
+- ✅ No setup required - works out of the box
+- ✅ Uses `reactivecircus/android-emulator-runner`
+- ✅ Auto-installs JDK 17, Node.js 20, Appium
+- ✅ Emulator boots in ~2-3 minutes
+- ✅ Free for public repositories
+
+**Execution Time:** ~5 minutes
+
+```yaml
+# Triggers automatically on:
+- push to main/develop
+- pull requests
+- manual trigger (workflow_dispatch)
+```
+
+#### 2. **`docker-tests.yml`** - Containerized Testing
+**Location:** `.github/workflows/docker-tests.yml`
+
+**What it does:**
+- Runs tests in Docker containers
+- Uses `budtmo/docker-android` emulator image
+- Exact same environment as local Docker execution
+- Includes noVNC for visual debugging
+
+**Key Features:**
+- ✅ Fully containerized & isolated
+- ✅ Consistent with local development
+- ✅ Docker Buildx for efficient builds
+- ✅ Automated container cleanup
+
+**Execution Time:** ~7 minutes
+
+```yaml
+# Process:
+1. Build test container (Dockerfile)
+2. Start Android emulator container
+3. Run tests: docker-compose run appium-tests
+4. Upload results & cleanup
+```
+
+#### 3. **`browserstack-tests.yml`** - Cloud Device Testing
+**Location:** `.github/workflows/browserstack-tests.yml`
+
+**What it does:**
+- Runs tests on real devices in BrowserStack cloud
+- Fastest execution - no emulator startup needed
+- Supports multiple device/OS combinations
+
+**Key Features:**
+- ✅ Tests on real physical devices
+- ✅ Parallel execution possible
+- ✅ No emulator management
+- ❌ Requires BrowserStack subscription
+
+**Execution Time:** ~2-3 minutes
+
+**Setup Required:**
+Go to GitHub repo → Settings → Secrets → Actions and add:
+- `BROWSERSTACK_USER` - Your BrowserStack username
+- `BROWSERSTACK_KEY` - Your BrowserStack access key
+
+**Comparison:**
+
+| Workflow | Environment | Speed | Cost | Best For |
+|----------|-------------|-------|------|----------|
+| `android-tests.yml` | Native emulator | ⚡⚡⚡ 5 min | Free | Quick validation |
+| `docker-tests.yml` | Docker containers | ⚡⚡ 7 min | Free | Consistent env |
+| `browserstack-tests.yml` | Real devices | ⚡⚡⚡⚡ 3 min | Paid | Production testing |
+
+**View Results:**  
+GitHub Repository → **Actions** tab → Click any workflow run
+
+**Status Badges:**  
+The badges at the top of this README show real-time status:
+- ![Android Tests](https://github.com/mahi4317/appium/actions/workflows/android-tests.yml/badge.svg) ← Click to see workflow runs
+- ![Docker Tests](https://github.com/mahi4317/appium/actions/workflows/docker-tests.yml/badge.svg)
+- ![BrowserStack Tests](https://github.com/mahi4317/appium/actions/workflows/browserstack-tests.yml/badge.svg)
+
+📖 **Detailed Guide:** [.github/CICD.md](.github/CICD.md)
+
+---
+
+### 🏗️ Jenkins (Self-Hosted CI/CD)
+
+**What is Jenkins?**  
+Open-source automation server that runs on your own infrastructure. Provides more control and flexibility than cloud CI/CD.
+
+**Two Jenkinsfile Options:**
+
+#### 1. **`Jenkinsfile`** - Full-Featured Pipeline
+
+**Best for:** Organizations with dedicated Jenkins infrastructure
+
+**Execution Modes:**
+- ✅ **Local** - Runs on Jenkins agent with Android SDK & emulator
+- ✅ **Docker** - Containerized execution
+- ✅ **BrowserStack** - Cloud real devices
+- ✅ **Sauce Labs** - Cloud emulators/devices
 
 **Features:**
-- ✅ Parameterized builds (choose execution mode)
-- ✅ Automated emulator setup
-- ✅ Docker containerized execution
-- ✅ Cloud testing (BrowserStack, Sauce Labs)
-- ✅ Test report publishing
-- ✅ Automatic cleanup
+- Parameterized builds (choose mode via dropdown)
+- Automatic Android SDK installation
+- Emulator creation and management
+- App installation automation
+- Specific test class selection
+- Comprehensive test reporting
 
-See [Jenkins Setup Guide](.jenkins/README.md) for detailed configuration.
+**Agent Requirements:**
+```groovy
+tools {
+    maven 'Maven 3.9.5'
+    jdk 'JDK 17'
+}
+// Plus: Android SDK, Node.js, Appium (auto-installed)
+```
+
+**Pipeline Flow:**
+```
+1. Checkout code
+2. Install Android SDK (if needed)
+3. Install Node.js + Appium
+4. Create & start emulator
+5. Install calculator app
+6. Run tests (local/docker/cloud)
+7. Publish JUnit reports
+8. Archive artifacts
+9. Cleanup
+```
+
+#### 2. **`Jenkinsfile.docker`** - Simplified Pipeline
+
+**Best for:** Quick setup, cloud Jenkins, containerized environments
+
+**Execution Modes:**
+- ✅ **Docker** - Containerized execution only
+- ✅ **BrowserStack** - Cloud real devices
+
+**Features:**
+- Minimal setup (just Docker required)
+- Runs inside Maven Docker container
+- No local SDK installation needed
+- Faster setup time
+- Smaller resource footprint
+
+**Agent:**
+```groovy
+agent {
+    docker {
+        image 'maven:3.9.5-eclipse-temurin-17'
+    }
+}
+// No SDK needed - everything in containers!
+```
+
+**Pipeline Flow:**
+```
+1. Checkout code (inside Maven container)
+2. Install docker-compose
+3. Run: ./run-docker-tests.sh OR mvn test -Denv=browserstack
+4. Publish results
+5. Cleanup
+```
+
+**Which Jenkinsfile to Use?**
+
+| Choose `Jenkinsfile` if: | Choose `Jenkinsfile.docker` if: |
+|-------------------------|-------------------------------|
+| Need all 4 execution modes | Docker/BrowserStack is enough |
+| Have dedicated Jenkins server | Quick setup preferred |
+| Want local emulator testing | Jenkins runs in containers/K8s |
+| Need Sauce Labs support | Minimal infrastructure |
+| Enterprise environment | Startup/small team |
+
+**Setup Instructions:**
+
+1. **Install Jenkins:**
+   ```bash
+   # Docker (recommended)
+   docker run -d -p 8080:8080 -v jenkins_home:/var/jenkins_home jenkins/jenkins:lts
+   
+   # macOS
+   brew install jenkins-lts && brew services start jenkins-lts
+   ```
+
+2. **Create Pipeline Job:**
+   - New Item → Multibranch Pipeline
+   - Add Git source: `https://github.com/mahi4317/appium.git`
+   - Script Path: `Jenkinsfile` or `Jenkinsfile.docker`
+   - Save (Jenkins auto-detects branches)
+
+3. **Configure Credentials:**
+   - Manage Jenkins → Credentials → Add
+   - Add `browserstack-user` (Secret Text)
+   - Add `browserstack-key` (Secret Text)
+   - Add `sauce-username` & `sauce-accesskey` (if using Sauce Labs)
+
+4. **Run Build:**
+   - Click "Build with Parameters"
+   - Select EXECUTION_MODE (local/docker/browserstack/saucelabs)
+   - Optional: Specify TEST_CLASS
+   - Click "Build"
+
+**Jenkins Features:**
+- ✅ Parameterized builds with dropdown selection
+- ✅ Automated environment setup
+- ✅ JUnit test report publishing
+- ✅ Artifact archiving (test reports)
+- ✅ Automatic cleanup (emulator, containers)
+- ✅ Email/Slack notifications (configurable)
+- ✅ Cron scheduling for nightly builds
+- ✅ Webhook triggers on git push
+
+**View Results:**
+- Build → Test Results (JUnit reports)
+- Build → Console Output (full logs)
+- Build → Build Artifacts (test reports)
+
+📖 **Complete Setup Guide:** [.jenkins/README.md](.jenkins/README.md)
+
+---
+
+### 📊 CI/CD Platform Comparison
+
+| Feature | GitHub Actions | Jenkins |
+|---------|---------------|---------|
+| **Hosting** | GitHub's servers (cloud) | Your own server/agent |
+| **Setup** | Zero - just push code | Manual installation |
+| **Cost** | Free (public repos) | Free (self-hosted) |
+| **Triggers** | Auto on push/PR | Webhook, cron, manual |
+| **Configuration** | YAML files | Groovy Jenkinsfile |
+| **Execution** | 3 separate workflows | 1 parameterized pipeline |
+| **Best For** | Open source, quick start | Enterprise, full control |
+| **Customization** | Limited | Extensive |
+
+**Why Both?**
+- **GitHub Actions** → Automatic validation on every push (no maintenance)
+- **Jenkins** → Advanced scheduling, private network testing, custom workflows
+
+Both platforms use the **same test code** - just different execution environments! 🎯
