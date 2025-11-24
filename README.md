@@ -421,35 +421,208 @@ tools {
 
 **Best for:** Quick setup, cloud Jenkins, containerized environments
 
+**What is "Jenkins Docker"?**  
+This Jenkinsfile runs the **entire pipeline inside a Docker container**. Instead of installing tools on the Jenkins agent, the pipeline executes inside a pre-built Maven container that already has Java 17 and Maven installed.
+
+**How it Works:**
+```groovy
+agent {
+    docker {
+        image 'maven:3.9.5-eclipse-temurin-17'  // Runs inside this container
+        args '-v /var/run/docker.sock:/var/run/docker.sock'  // Mount Docker socket
+    }
+}
+```
+
+**The Magic:**
+1. Jenkins pulls `maven:3.9.5-eclipse-temurin-17` image
+2. Your pipeline code runs **inside** this container
+3. Container has access to host's Docker (via mounted socket)
+4. Test containers can be launched from inside the Maven container
+5. Everything cleans up automatically when pipeline completes
+
+**Visual Flow:**
+```
+Jenkins Server
+    └── Jenkins Agent (any OS)
+        └── Docker Engine
+            └── Maven Container (Pipeline runs here!)
+                ├── Your test code
+                ├── Maven commands
+                └── Can launch Docker containers:
+                    ├── android-emulator container
+                    └── appium-tests container
+```
+
 **Execution Modes:**
 - ✅ **Docker** - Containerized execution only
 - ✅ **BrowserStack** - Cloud real devices
 
 **Features:**
-- Minimal setup (just Docker required)
-- Runs inside Maven Docker container
-- No local SDK installation needed
-- Faster setup time
-- Smaller resource footprint
+- **Minimal setup** - Just Docker required on Jenkins agent
+- **Runs inside Maven Docker container** - No Maven/Java installation needed
+- **No local SDK installation needed** - Everything containerized
+- **Faster setup time** - Skip SDK downloads (~10GB saved)
+- **Smaller resource footprint** - Only containers running during tests
+- **Portable** - Same everywhere Docker runs
 
 **Agent:**
 ```groovy
 agent {
     docker {
         image 'maven:3.9.5-eclipse-temurin-17'
+        args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.m2:/root/.m2'
+        //    └─ Access host Docker                      └─ Cache Maven dependencies
     }
 }
 // No SDK needed - everything in containers!
 ```
 
+**Why Mount Docker Socket?**  
+`-v /var/run/docker.sock:/var/run/docker.sock` allows the Maven container to control the host's Docker daemon. This enables "Docker-in-Docker" - launching test containers from inside the pipeline container.
+
+**Why Mount .m2 Directory?**  
+`-v $HOME/.m2:/root/.m2` caches Maven dependencies between builds, so you don't re-download them every time.
+
 **Pipeline Flow:**
 ```
-1. Checkout code (inside Maven container)
-2. Install docker-compose
-3. Run: ./run-docker-tests.sh OR mvn test -Denv=browserstack
-4. Publish results
-5. Cleanup
+1. Jenkins pulls maven:3.9.5-eclipse-temurin-17 image
+2. Starts Maven container with your code mounted
+3. Checkout code (inside Maven container)
+4. Install docker-compose (in container)
+5. Launch test execution:
+   OPTION A (Docker mode):
+     → ./run-docker-tests.sh
+     → Launches android-emulator + appium-tests containers
+     → Tests run in containers
+   OPTION B (BrowserStack mode):
+     → mvn test -Denv=browserstack
+     → Tests run on BrowserStack cloud
+6. Publish JUnit results
+7. Cleanup: Stop containers, remove Maven container
 ```
+
+**Real-World Example:**
+
+**Traditional Jenkinsfile (Heavy):**
+```groovy
+// Requires on Jenkins agent:
+- Java 17 installed
+- Maven installed  
+- Android SDK installed (~10GB)
+- Node.js installed
+- Appium installed
+- Emulator setup
+Total setup: 30+ minutes, 15GB+ disk
+```
+
+**Jenkinsfile.docker (Light):**
+```groovy
+// Requires on Jenkins agent:
+- Docker only
+Total setup: 2 minutes, minimal disk
+
+// Everything else runs in containers!
+```
+
+**When to Use `Jenkinsfile.docker`:**
+
+✅ **Use it if:**
+- Your Jenkins runs in Kubernetes/cloud
+- You want minimal Jenkins agent setup
+- Your team uses Docker for local development
+- You prefer consistency (same env everywhere)
+- Multiple projects share same Jenkins agents
+- You don't need local emulator mode
+
+❌ **Don't use it if:**
+- You need local emulator testing on Jenkins agent
+- Docker isn't available on your Jenkins agents
+- You need Sauce Labs support (use full `Jenkinsfile`)
+- Your network blocks Docker Hub access
+
+**Comparison: Full vs Docker Jenkinsfile**
+
+| Aspect | `Jenkinsfile` | `Jenkinsfile.docker` |
+|--------|--------------|---------------------|
+| **Pipeline Runs** | On Jenkins agent | Inside Docker container |
+| **Java/Maven** | Installed on agent | In container (pre-installed) |
+| **Android SDK** | Installed on agent (~10GB) | Not needed |
+| **Setup Time** | 10-30 min | 2-5 min |
+| **Disk Space** | 15GB+ | 2GB (containers) |
+| **Execution Modes** | 4 (local/Docker/BS/SL) | 2 (Docker/BS) |
+| **Best For** | Full control | Quick setup |
+
+**Example Build Output:**
+
+```groovy
+[Pipeline] Start of Pipeline
+[Pipeline] node
+Running on Jenkins-Agent
+[Pipeline] {
+[Pipeline] docker.image('maven:3.9.5-eclipse-temurin-17').inside
+  Pulling maven:3.9.5-eclipse-temurin-17 ✓
+  Starting container 8a3f2b1... ✓
+  
+  [Pipeline] Inside container: 8a3f2b1
+  [Pipeline] stage('Checkout')
+  [Pipeline] checkout scm ✓
+  
+  [Pipeline] stage('Run Tests - Docker')
+  $ docker-compose up -d android-emulator
+  $ docker-compose run --rm appium-tests
+    Running: mvn clean test -Denv=docker
+    Tests run: 2, Failures: 0, Skipped: 0 ✓
+  
+  [Pipeline] junit
+  Test Results: 2 passed ✓
+  
+  [Pipeline] Stopping container 8a3f2b1 ✓
+[Pipeline] End of Pipeline
+```
+
+**Architecture Diagram:**
+
+```
+┌─────────────────────────────────────────┐
+│         Jenkins Server                  │
+├─────────────────────────────────────────┤
+│  ┌──────────────────────────────────┐   │
+│  │   Jenkins Agent (Host)           │   │
+│  │   ┌──────────────────────────┐   │   │
+│  │   │  Docker Engine           │   │   │
+│  │   │  ┌────────────────────┐  │   │   │
+│  │   │  │ Maven Container    │  │   │   │
+│  │   │  │ (Pipeline runs)    │  │   │   │
+│  │   │  │ ┌────────────────┐ │  │   │   │
+│  │   │  │ │ Your Code      │ │  │   │   │
+│  │   │  │ │ + mvn test     │ │  │   │   │
+│  │   │  │ └────────────────┘ │  │   │   │
+│  │   │  │         ↓          │  │   │   │
+│  │   │  │    Launches:       │  │   │   │
+│  │   │  └─────────┬──────────┘  │   │   │
+│  │   │            ↓             │   │   │
+│  │   │  ┌─────────────────┐    │   │   │
+│  │   │  │ android-emulator│    │   │   │
+│  │   │  │ container       │    │   │   │
+│  │   │  └─────────────────┘    │   │   │
+│  │   │  ┌─────────────────┐    │   │   │
+│  │   │  │ appium-tests    │    │   │   │
+│  │   │  │ container       │    │   │   │
+│  │   │  └─────────────────┘    │   │   │
+│  │   └──────────────────────────┘   │   │
+│  └──────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+```
+
+**Key Advantages:**
+
+1. **Clean Jenkins Agents** - No tool pollution across projects
+2. **Version Control** - Pipeline defines exact container version
+3. **Reproducibility** - Same container = same results everywhere
+4. **Easy Rollback** - Just change image version in Jenkinsfile
+5. **Parallel Builds** - Multiple builds don't conflict (isolated containers)
+6. **Multi-Project** - Different projects use different containers
 
 **Which Jenkinsfile to Use?**
 
